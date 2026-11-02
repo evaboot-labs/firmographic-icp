@@ -1,0 +1,13 @@
+{
+  "name": "firmographic-icp",
+  "version": "1.0.0",
+  "description": "Compare the firmographics of won and lost accounts through Evaboot, write the values that win more often to ICP.md, and turn them into a Sales Navigator account search.",
+  "author": { "name": "Evaboot", "url": "https://evaboot.com" },
+  "homepage": "https://evaboot.com/blog/how-to-create-an-ideal-customer-profile",
+  "repository": "https://github.com/evaboot-labs/firmographic-icp",
+  "license": "MIT",
+  "privacyPolicyUrl": "https://evaboot.com/privacy-policy",
+  "keywords": ["sales-navigator", "ideal-customer-profile", "icp", "firmographics", "evaboot", "mcp", "claude", "lead-generation"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}
