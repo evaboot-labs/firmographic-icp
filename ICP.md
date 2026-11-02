@@ -7,11 +7,11 @@ No Evaboot row for: Decathlon. They are left out.
 ## Your ICP
 
 - **Industry:** Software Development
-- **Employees:** 51 to 200, 501 to 1000
+- **Employees:** 51 to 200; 501 to 1000
 - **HQ country:** no difference between won and lost
 - **Headcount growth (1 year):** flat (0 to 9%)
 - **Company type:** Privately Held
-- **Founded:** 2015 or later, 2010 to 2014
+- **Founded:** 2015 or later; 2010 to 2014
 - **Revenue (LinkedIn estimate):** $500M to $1000M
 
 ## Won vs lost, value by value

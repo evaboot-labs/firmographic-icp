@@ -48,7 +48,7 @@ python3 icp.py compare data/rows.json ACCOUNTS.md
 
 It writes `ICP.md`: for each attribute (industry, employees, HQ country, headcount growth over 1 year, company type, founding year, revenue), the won and lost count and the win rate of each value. A value is in the ICP when it wins more often than the average and has at least 2 wins.
 
-Show the user the "Your ICP" list and the table. Ask about each value they want to drop or add: they know deals the data does not. Edit the "Your ICP" list in `ICP.md` to match.
+Show the user the "Your ICP" list and the table. Ask about each value they want to drop or add: they know deals the data does not. Edit the "Your ICP" list in `ICP.md` to match; values are separated by `;`.
 
 ## Step 4: the Sales Navigator account search
 
@@ -57,7 +57,7 @@ python3 icp.py filters ICP.md
 ```
 
 1. Show the account search as a link. It holds industry, company headcount, headquarters and headcount growth. Company type, founding year and revenue have no account filter here: they stay in `ICP.md` as checks for the list.
-2. If it prints an unknown industry or country, ask the user to pick it in a Sales Navigator search, read its id in the URL, and add it to `INDUSTRY` or `COUNTRY` in `icp.py`.
+2. If it prints an unknown industry or country, ask the user to pick it in a Sales Navigator search, read its id in the URL, and add it to `INDUSTRY`, `COUNTRY` or `HEADCOUNT` in `icp.py`.
 3. The user saves the search in Sales Navigator. To find the people inside those accounts and export them, see https://github.com/evaboot-labs/lookalike-prospect-list. To score a list against `ICP.md`, see https://evaboot.com/blog/ai-powered-fit-scoring-for-icp-lead-list.
 
 To run it from n8n instead, follow `docs/n8n.md`.

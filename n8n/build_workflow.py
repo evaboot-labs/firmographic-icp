@@ -94,7 +94,9 @@ for (const i of items) {
   if (r.failure_reason || /FAIL|ERROR|CANCEL/i.test(r.status || '')) throw new Error(`An export stopped: ${r.search_name} ${r.status} ${r.failure_reason || ''}`);
 }
 const allDone = items.every(i => i.json.structuredContent?.result?.status === 'EXECUTED');
-return items.map(i => ({ json: { ...i.json, allDone } }));
+const polls = (items[0].json.polls || 0) + 1;
+if (!allDone && polls > 60) throw new Error('Exports still not finished after an hour: ' + items.filter(i => i.json.structuredContent?.result?.status !== 'EXECUTED').map(i => i.json.structuredContent?.result?.search_name).join(', '));
+return items.map(i => ({ json: { ...i.json, allDone, polls } }));
 """
 
 COMPARE_JS = r"""

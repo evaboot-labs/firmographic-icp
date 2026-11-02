@@ -82,7 +82,10 @@ def read_accounts(path):
         outcome = cells[2].lower()
         if outcome not in ("won", "lost"):
             sys.exit(f"{path}: outcome of {cells[0]} must be won or lost, not '{cells[2]}'.")
-        rows.append({"name": cells[0], "id": re.sub(r"\D", "", cells[1]), "outcome": outcome})
+        cid = re.sub(r"\D", "", cells[1])
+        if not cid:
+            sys.exit(f"{path}: {cells[0]} needs a LinkedIn company id (the number in linkedin.com/company/<id>).")
+        rows.append({"name": cells[0], "id": cid, "outcome": outcome})
     won = sum(r["outcome"] == "won" for r in rows)
     if won < 3 or len(rows) - won < 3:
         sys.exit(f"{path}: list at least 3 won and 3 lost accounts (20 of each gives a real signal).")
@@ -100,10 +103,15 @@ def cmd_urls(accounts_path):
 
 def load_rows(path):
     data = json.load(open(path, encoding="utf-8"))
-    if isinstance(data, dict):
-        data = data.get("prospects") or data.get("result", {}).get("prospects") or []
+    rows = []
+    # Accept flat export rows, or whole get_export results that hold them in "prospects".
+    for item in data if isinstance(data, list) else [data]:
+        if "prospects" in item or "result" in item:
+            rows += item.get("prospects") or item.get("result", {}).get("prospects") or []
+        else:
+            rows.append(item)
     by_id = {}
-    for r in data:
+    for r in rows:
         cid = re.sub(r"\D", "", str(r.get("Company Linkedin URL Unique ID") or "").rsplit("/", 1)[-1])
         if cid and cid not in by_id:
             by_id[cid] = r
@@ -145,7 +153,8 @@ def write_icp(found, missing, base, table):
     out += ["## Your ICP", ""]
     for attr, values in table.items():
         keep = [v["value"] for v in values if v["icp"]]
-        out.append(f"- **{attr}:** {', '.join(keep) if keep else 'no difference between won and lost'}")
+        # "; " because some LinkedIn industries hold a comma ("Technology, Information and Internet").
+        out.append(f"- **{attr}:** {'; '.join(keep) if keep else 'no difference between won and lost'}")
     out += ["", "## Won vs lost, value by value", "",
             "| Attribute | Value | Won | Lost | Win rate | In ICP |", "|---|---|---|---|---|---|"]
     for attr, values in table.items():
@@ -162,6 +171,8 @@ def write_icp(found, missing, base, table):
 
 def cmd_compare(rows_path, accounts_path, out_path="ICP.md"):
     found, missing, base, table = compare(read_accounts(accounts_path), load_rows(rows_path))
+    if not found:
+        sys.exit(f"{rows_path}: no row matches a LinkedIn id in {accounts_path}.")
     open(out_path, "w", encoding="utf-8").write(write_icp(found, missing, base, table))
     won = sum(a["outcome"] == "won" for a in found)
     print(f"{len(found)} accounts with firmographics ({won} won, {len(found) - won} lost), average win rate {pct(base)}.")
@@ -169,7 +180,7 @@ def cmd_compare(rows_path, accounts_path, out_path="ICP.md"):
         print(f"No row for: {', '.join(missing)}")
     for attr, values in table.items():
         keep = [f"{v['value']} ({v['won']}/{v['won'] + v['lost']})" for v in values if v["icp"]]
-        print(f"  {attr}: {', '.join(keep) if keep else '-'}")
+        print(f"  {attr}: {'; '.join(keep) if keep else '-'}")
     print(f"Written to {out_path}.")
 
 
@@ -178,7 +189,7 @@ def read_icp(path):
     for line in open(path, encoding="utf-8"):
         m = re.match(r"- \*\*(.+?):\*\* (.+)", line.strip())
         if m and not m.group(2).startswith("no difference"):
-            icp[m.group(1)] = [v.strip() for v in m.group(2).split(",") if v.strip()]
+            icp[m.group(1)] = [v.strip() for v in m.group(2).split(";") if v.strip()]
     return icp
 
 
@@ -193,7 +204,10 @@ def cmd_filters(icp_path):
         if ids:
             parts.append(lst("INDUSTRY", ids))
     if "Employees" in icp:
-        parts.append(lst("COMPANY_HEADCOUNT", sorted(HEADCOUNT[e] for e in icp["Employees"] if e in HEADCOUNT)))
+        unknown += [e for e in icp["Employees"] if e not in HEADCOUNT]
+        codes = sorted(HEADCOUNT[e] for e in icp["Employees"] if e in HEADCOUNT)
+        if codes:
+            parts.append(lst("COMPANY_HEADCOUNT", codes))
     if "HQ country" in icp:
         unknown += [c for c in icp["HQ country"] if c not in COUNTRY]
         ids = [COUNTRY[c] for c in icp["HQ country"] if c in COUNTRY]
@@ -208,7 +222,7 @@ def cmd_filters(icp_path):
                 parts.append(f"(type%3ACOMPANY_HEADCOUNT_GROWTH%2CrangeValue%3A({'%2C'.join(rng)}))")
     skipped = [a for a in icp if a not in ("Industry", "Employees", "HQ country", "Headcount growth (1 year)")]
     if unknown:
-        print(f"Unknown LinkedIn id, add it to INDUSTRY or COUNTRY in icp.py: {', '.join(unknown)}", file=sys.stderr)
+        print(f"Unknown LinkedIn id, add it to INDUSTRY, COUNTRY or HEADCOUNT in icp.py: {', '.join(unknown)}", file=sys.stderr)
     if skipped:
         print(f"No Sales Navigator account filter for: {', '.join(skipped)}. Check them on the list.", file=sys.stderr)
     if not parts:
