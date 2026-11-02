@@ -1,0 +1,7 @@
+{"layout": "flow", "eyebrow": "evaboot-labs · firmographic-icp", "headline": "Define the ICP you actually win.",
+ "subline": "Won and lost deals in. The firmographics that separate them, as Sales Navigator filters, out.",
+ "nodes": [{"label": "01 · Deals", "title": "Won and lost", "caption": "From your CRM"},
+           {"label": "02 · Firmographics", "title": "Evaboot", "caption": "Industry, size, HQ, growth"},
+           {"label": "03 · Compare", "title": "Win rate", "caption": "Value by value"},
+           {"label": "04 · Result", "title": "ICP + search", "caption": "ICP.md and Sales Navigator filters"}],
+ "spec": "server <em>mcp.evaboot.com/mcp</em> · one session, no schedule"}

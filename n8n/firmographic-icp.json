@@ -1,0 +1,431 @@
+{
+  "name": "Firmographic ICP (Evaboot)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Define your ICP from won and lost deals",
+        "formDescription": "Paste the accounts you won and lost. Evaboot reads each company's firmographics, and you see which values win more often. Nothing is spent before you confirm.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Accounts (the ACCOUNTS.md table)",
+              "fieldType": "textarea",
+              "requiredField": true,
+              "placeholder": "| lemlist | 18342604 | won |\n| Capgemini | 157240 | lost |"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "89f35078-2e64-4e39-a513-6ba9dbd0346c",
+      "name": "Your won and lost accounts",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Same as icp.py read_accounts: | Company | LinkedIn id | Outcome |, outcome won or lost.\nconst accounts = String($('Your won and lost accounts').first().json['Accounts (the ACCOUNTS.md table)']).split('\\n')\n  .map(l => l.trim().replace(/^\\||\\|$/g, '').split('|').map(c => c.trim()))\n  .filter(c => c.length >= 3 && c[0] && c[0] !== 'Company' && !/^[-: ]+$/.test(c[0]))\n  .map(c => ({ name: c[0], id: c[1].replace(/\\D/g, ''), outcome: c[2].toLowerCase() }));\nconst bad = accounts.filter(a => !['won', 'lost'].includes(a.outcome) || !a.id);\nif (bad.length) throw new Error('Each row needs a LinkedIn id and won or lost: ' + bad.map(a => a.name).join(', '));\nconst won = accounts.filter(a => a.outcome === 'won').length;\nif (won < 3 || accounts.length - won < 3) throw new Error('List at least 3 won and 3 lost accounts (20 of each gives a real signal).');\nreturn [{ json: { accounts, summary: `${won} won and ${accounts.length - won} lost accounts` } }];\n"
+      },
+      "id": "3aa50e6f-0de2-4b6f-a899-f1ec4d651776",
+      "name": "Accounts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "What next?",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Read the firmographics"
+                  },
+                  {
+                    "option": "Stop here"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "formTitle": "={{ $json.summary }}",
+          "formDescription": "=Evaboot exports one row per account: {{ $json.accounts.length }} credits."
+        }
+      },
+      "id": "b31c6321-1651-4ed7-8e02-31942992486c",
+      "name": "Review the cost",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "97f8d12c-83dd-4c7e-829f-0dbe7c6476f5",
+              "leftValue": "={{ $json['What next?'] }}",
+              "rightValue": "Read the firmographics",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4ecf84d0-bdfc-4ba8-8573-d46e5c03d78d",
+      "name": "Go?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Same as icp.py urls: one search per account, its CXOs. One exported row carries the company fields.\nreturn $('Accounts').first().json.accounts.map(a => {\n  const urn = encodeURIComponent(encodeURIComponent('urn:li:organization:' + a.id));\n  return { json: { ...a, url: 'https://www.linkedin.com/sales/search/people?query=(filters%3AList('\n    + `(type%3ACURRENT_COMPANY%2Cvalues%3AList((id%3A${urn}%2CselectionType%3AINCLUDED)))%2C`\n    + '(type%3ASENIORITY_LEVEL%2Cvalues%3AList((id%3A310%2CselectionType%3AINCLUDED)))))' } };\n});\n"
+      },
+      "id": "6db527da-8b01-4b33-9b11-e99bd086f566",
+      "name": "One search per account",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.evaboot.com/mcp",
+        "authentication": "bearerAuth",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "export_sn_search_or_list",
+          "cachedResultName": "export_sn_search_or_list"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ search_url: $json.url, max_results: 1, name: 'ICP ' + $json.id }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "ea77e1ee-a44c-4482-93e1-8c36129d7390",
+      "name": "Export one row each",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "",
+          "name": "Evaboot MCP (Bearer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 60
+      },
+      "id": "d6e79701-9d34-4384-881d-029c90dd07d8",
+      "name": "Wait 60 s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.evaboot.com/mcp",
+        "authentication": "bearerAuth",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "get_export",
+          "cachedResultName": "get_export"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ extraction_id: $json.structuredContent.result.extraction_id || $json.structuredContent.result.search_id }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "e5bf1b13-de98-4566-bca4-9717694e7a96",
+      "name": "Check the exports",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "",
+          "name": "Evaboot MCP (Bearer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Every account's export must be finished before the comparison; otherwise all go back to the wait.\nconst items = $input.all();\nfor (const i of items) {\n  const r = i.json.structuredContent?.result || {};\n  if (r.failure_reason || /FAIL|ERROR|CANCEL/i.test(r.status || '')) throw new Error(`An export stopped: ${r.search_name} ${r.status} ${r.failure_reason || ''}`);\n}\nconst allDone = items.every(i => i.json.structuredContent?.result?.status === 'EXECUTED');\nreturn items.map(i => ({ json: { ...i.json, allDone } }));\n"
+      },
+      "id": "10ae03b3-b298-4bd7-b126-bae5a6a871cc",
+      "name": "All done?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b5644c1a-8109-4f2e-8d29-8b64c66f3dac",
+              "leftValue": "={{ $json.allDone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e6f7c9da-8add-4891-a284-8eb25823312f",
+      "name": "Finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Same as icp.py compare + filters: win rate per firmographic value; a value is in the ICP when it wins more\n// often than the average and has at least 2 wins. Then the Sales Navigator account search.\nconst HEADCOUNT = {\"1 to 10\": \"B\", \"11 to 50\": \"C\", \"51 to 200\": \"D\", \"201 to 500\": \"E\", \"501 to 1000\": \"F\", \"1001 to 5000\": \"G\", \"5001 to 10000\": \"H\", \"10001+\": \"I\"}, INDUSTRY = {\"Software Development\": 4, \"Technology, Information and Internet\": 6, \"Financial Services\": 43, \"IT Services and IT Consulting\": 96, \"Business Consulting and Services\": 11, \"Advertising Services\": 80, \"Computer Games\": 109, \"Retail\": 27, \"Hospitals and Health Care\": 14}, COUNTRY = {\"France\": 105015875, \"United States\": 103644278, \"United Kingdom\": 101165590, \"Germany\": 101282230, \"Spain\": 105646813, \"Netherlands\": 102890719, \"Belgium\": 100565514, \"Switzerland\": 106693272, \"Canada\": 101174742};\nconst GROWTH = [[-1000, 0, 'shrinking (below 0%)'], [0, 10, 'flat (0 to 9%)'], [10, 25, 'growing (10 to 24%)'], [25, 100000, 'fast (25% and more)']];\nconst FOUNDED = [[0, 2000, 'before 2000'], [2000, 2010, '2000 to 2009'], [2010, 2015, '2010 to 2014'], [2015, 3000, '2015 or later']];\nconst band = (v, bands) => { const n = parseFloat(v); if (isNaN(n)) return ''; const b = bands.find(([lo, hi]) => lo <= n && n < hi); return b ? b[2] : ''; };\nconst ATTR = {\n  'Industry': r => r['Company Industry'] || '',\n  'Employees': r => r['Company Employee Range'] || '',\n  'HQ country': r => String(r['Company Headquarters (Full Address)'] || '').split(',').pop().trim(),\n  'Headcount growth (1 year)': r => band(r['Company Employee Growth 1 Year (%)'], GROWTH),\n  'Company type': r => r['Company Type'] || '',\n  'Founded': r => String(r['Company Year Founded'] || '0') === '0' ? '' : band(r['Company Year Founded'], FOUNDED),\n  'Revenue (LinkedIn estimate)': r => { const lo = r['Company Revenue Min (Millions USD)'], hi = r['Company Revenue Max (Millions USD)'];\n    return (lo === undefined || lo === null || lo === '') ? '' : (hi === undefined || hi === null || hi === '' || Number(hi) >= 1000000 ? `$${lo}M and more` : `$${lo}M to $${hi}M`); },\n};\nconst rows = {};\nfor (const i of $input.all()) for (const p of i.json.structuredContent?.result?.prospects || []) {\n  const id = String(p['Company Linkedin URL Unique ID'] || '').split('/').pop().replace(/\\D/g, '');\n  if (id && !rows[id]) rows[id] = p;\n}\nconst accounts = $('Accounts').first().json.accounts;\nconst found = accounts.filter(a => rows[a.id]).map(a => ({ ...a, row: rows[a.id] }));\nconst missing = accounts.filter(a => !rows[a.id]).map(a => a.name);\nconst base = found.filter(a => a.outcome === 'won').length / found.length;\nconst icp = {}, table = [];\nfor (const [attr, read] of Object.entries(ATTR)) {\n  const c = {};\n  for (const a of found) { const v = read(a.row) || 'unknown'; c[v] = c[v] || { won: 0, lost: 0 }; c[v][a.outcome]++; }\n  icp[attr] = [];\n  for (const [value, n] of Object.entries(c).sort((x, y) => y[1].won / (y[1].won + y[1].lost) - x[1].won / (x[1].won + x[1].lost))) {\n    const rate = n.won / (n.won + n.lost), keep = value !== 'unknown' && n.won >= 2 && rate > base;\n    if (keep) icp[attr].push(value);\n    table.push({ attr, value, ...n, rate: Math.round(100 * rate), keep });\n  }\n}\nconst list = (type, vals) => `(type%3A${type}%2Cvalues%3AList(${vals.map(v => `(id%3A${v}%2CselectionType%3AINCLUDED)`).join('%2C')}))`;\nconst parts = [], unknown = [];\nconst ind = icp['Industry'].filter(i => INDUSTRY[i]); unknown.push(...icp['Industry'].filter(i => !INDUSTRY[i]));\nif (ind.length) parts.push(list('INDUSTRY', ind.map(i => INDUSTRY[i])));\nconst hc = icp['Employees'].filter(e => HEADCOUNT[e]).map(e => HEADCOUNT[e]).sort();\nif (hc.length) parts.push(list('COMPANY_HEADCOUNT', hc));\nconst ctry = icp['HQ country'].filter(c => COUNTRY[c]); unknown.push(...icp['HQ country'].filter(c => !COUNTRY[c]));\nif (ctry.length) parts.push(list('REGION', ctry.map(c => COUNTRY[c])));\nconst picked = GROWTH.filter(g => icp['Headcount growth (1 year)'].includes(g[2]));\nif (picked.length) {\n  const lo = Math.min(...picked.map(g => g[0])), hi = Math.max(...picked.map(g => g[1]));\n  const rng = [...(lo > -1000 ? [`min%3A${lo}`] : []), ...(hi < 100000 ? [`max%3A${hi - 1}`] : [])];\n  if (rng.length) parts.push(`(type%3ACOMPANY_HEADCOUNT_GROWTH%2CrangeValue%3A(${rng.join('%2C')}))`);\n}\nconst url = parts.length ? 'https://www.linkedin.com/sales/search/company?query=(filters%3AList(' + parts.join('%2C') + '))' : '';\nconst lines = Object.entries(icp).map(([k, v]) => `<li><b>${k}:</b> ${v.length ? v.join(', ') : 'no difference between won and lost'}</li>`).join('');\nconst html = `<p>${found.length} accounts with firmographics, average win rate ${Math.round(100 * base)}%.`\n  + (missing.length ? ` No Evaboot row for ${missing.join(', ')}.` : '') + `</p><ul>${lines}</ul>`\n  + (url ? `<p><a href=\"${url}\" target=\"_blank\">Open the ICP account search in Sales Navigator</a></p>` : '<p>No ICP value maps to a Sales Navigator filter.</p>')\n  + (unknown.length ? `<p>Add the LinkedIn id of: ${unknown.join(', ')} to this node.</p>` : '');\nreturn [{ json: { icp, table, url, missing, base, html } }];\n"
+      },
+      "id": "9e04783b-bfbe-4004-a33b-127bfc3b3ddd",
+      "name": "Compare won and lost",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "showText",
+        "responseText": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "a225fbcf-8a51-4c23-a611-7f8c77c66b28",
+      "name": "Your ICP",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        2420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Nothing exported",
+        "completionMessage": "No credit was spent.",
+        "options": {}
+      },
+      "id": "88e1786c-6877-4028-b819-337587204c80",
+      "name": "Stopped",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Your won and lost accounts": {
+      "main": [
+        [
+          {
+            "node": "Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accounts": {
+      "main": [
+        [
+          {
+            "node": "Review the cost",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review the cost": {
+      "main": [
+        [
+          {
+            "node": "Go?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One search per account": {
+      "main": [
+        [
+          {
+            "node": "Export one row each",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Export one row each": {
+      "main": [
+        [
+          {
+            "node": "Wait 60 s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 60 s": {
+      "main": [
+        [
+          {
+            "node": "Check the exports",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the exports": {
+      "main": [
+        [
+          {
+            "node": "All done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All done?": {
+      "main": [
+        [
+          {
+            "node": "Finished?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare won and lost": {
+      "main": [
+        [
+          {
+            "node": "Your ICP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Go?": {
+      "main": [
+        [
+          {
+            "node": "One search per account",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stopped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finished?": {
+      "main": [
+        [
+          {
+            "node": "Compare won and lost",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 60 s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

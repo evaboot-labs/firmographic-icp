@@ -1,0 +1,14 @@
+{
+  "name": "evaboot-labs-firmographic-icp",
+  "owner": { "name": "Evaboot", "url": "https://evaboot.com" },
+  "metadata": {
+    "description": "Define your ideal customer profile from the deals you won and lost: firmographics from Evaboot, a win rate per value, and a Sales Navigator account search."
+  },
+  "plugins": [
+    {
+      "name": "firmographic-icp",
+      "source": "./",
+      "description": "Compare the firmographics of won and lost accounts through Evaboot, write the values that win more often to ICP.md, and turn them into a Sales Navigator account search."
+    }
+  ]
+}
