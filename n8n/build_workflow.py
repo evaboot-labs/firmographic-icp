@@ -156,7 +156,8 @@ const html = `<p>${found.length} accounts with firmographics, average win rate $
   + (missing.length ? ` No Evaboot row for ${missing.join(', ')}.` : '') + `</p><ul>${lines}</ul>`
   + (url ? `<p><a href="${url}" target="_blank">Open the ICP account search in Sales Navigator</a></p>` : '<p>No ICP value maps to a Sales Navigator filter.</p>')
   + (unknown.length ? `<p>Add the LinkedIn id of: ${unknown.join(', ')} to this node.</p>` : '');
-return [{ json: { icp, table, url, missing, base, html } }];
+const page = `<div style="max-width:560px;margin:40px auto;padding:32px;background:#fff;border:1px solid #dbdfe7;border-radius:8px;font-family:Open Sans,sans-serif;font-size:15px;line-height:1.6;color:#333"><h1 style="font-size:22px;font-weight:400;margin:0 0 12px">Your ICP</h1>${html}</div>`;
+return [{ json: { icp, table, url, missing, base, html: page } }];
 """.replace("__HEADCOUNT__", json.dumps(HEADCOUNT)).replace("__INDUSTRY__", json.dumps(INDUSTRY)) \
    .replace("__COUNTRY__", json.dumps(COUNTRY))
 
